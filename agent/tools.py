@@ -5,6 +5,7 @@ import glob
 import re
 import json
 import time
+import random
 
 # Safety blocks
 BLOCKED_PATTERNS = [
@@ -43,6 +44,11 @@ def exec_python(code):
 def write_file(path, content):
     full = os.path.expanduser(path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
+    # Unescape literal \n, \t, etc. that come from AI
+    try:
+        content = content.encode('utf-8').decode('unicode_escape')
+    except:
+        pass  # If decoding fails, write as-is
     with open(full, 'w') as f:
         f.write(content)
     return f"Written: {full} ({len(content)} bytes)"
@@ -358,3 +364,56 @@ def sys_is_idle(threshold_seconds=300):
     if isinstance(idle, (int, float)):
         return idle > threshold_seconds
     return False
+
+# ============== FAUCET & GAMBLING AUTOMATION ==============
+
+FAUCET_LOG_DIR = os.path.expanduser("~/sgoinfre/AgentAI/faucet_logs")
+os.makedirs(FAUCET_LOG_DIR, exist_ok=True)
+
+def faucet_claim(url, claim_button_selector, cooldown=3600):
+    """Automate faucet claim on a website"""
+    if not browser.driver:
+        return "ERROR: Browser not started. Use EXECUTE:browser_start|firefox first"
+    
+    try:
+        browser.navigate(url)
+        time.sleep(3)
+        
+        try:
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            
+            claim_btn = WebDriverWait(browser.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, claim_button_selector))
+            )
+            claim_btn.click()
+            time.sleep(2)
+            
+            page_text = browser.driver.find_element(By.TAG_NAME, "body").text
+            if "success" in page_text.lower() or "claimed" in page_text.lower():
+                return f"Faucet claimed successfully! Next claim in {cooldown/60} minutes"
+            else:
+                return f"Claim attempted. Page shows: {page_text[:200]}"
+        except Exception as e:
+            return f"ERROR clicking claim button: {str(e)}"
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+def auto_faucet_loop(url, claim_button, cooldown_minutes=60, max_claims=24):
+    """Run faucet claims in a loop"""
+    results = []
+    for i in range(max_claims):
+        result = faucet_claim(url, claim_button, cooldown_minutes * 60)
+        results.append(f"Claim {i+1}: {result}")
+        if i < max_claims - 1:
+            time.sleep(cooldown_minutes * 60)
+    return "\n".join(results)
+
+def dice_roll(url, bet_amount, roll_under, api_key=None):
+    """Automate dice gambling (for sites with API)"""
+    return "Dice automation requires site-specific implementation and API key"
+
+def solve_captcha(image_path):
+    """Basic captcha solving placeholder"""
+    return "Captcha solving requires external service API key (2captcha, Anti-Captcha)"
