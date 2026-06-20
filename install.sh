@@ -8,11 +8,11 @@ status() { echo ">>> $*" >&2; }
 error() { echo "ERROR: $*" >&2; exit 1; }
 
 echo "=========================================="
-echo "  AgentAI Installer"
+echo "         NaryAgentAI Installer            "
 echo "=========================================="
 echo ""
 echo "Choose installation directory:"
-echo "  1) ~/sgoinfre/AgentAI  (default)"
+echo "  1) ~/sgoinfre/AgentAI    (default)"
 echo "  2) ~/AgentAI             (home directory)"
 echo "  3) Custom path"
 echo ""
@@ -59,14 +59,14 @@ fi
 mkdir -p "$INSTALL_DIR"
 status "Installing to: $INSTALL_DIR"
 
-# Download all repo files first
+# Download all repo files
 status "Downloading AgentAI files..."
 mkdir -p "$INSTALL_DIR/agent" "$INSTALL_DIR/models" "$INSTALL_DIR/config" "$INSTALL_DIR/ollama"
 
 for file in agent/agent.py agent/browser.py agent/tools.py agent/requirements.txt \
             models/cybersec-agent.modelfile models/trading-agent.modelfile \
             models/code-agent.modelfile models/mine-agent.modelfile \
-            config/default.env start.sh README.md \
+            config/default.env start.sh README.md uninstall.sh \
             ollama/install.sh; do
     curl -fsSL "$REPO_URL/$file" -o "$INSTALL_DIR/$file" 2>/dev/null || true
 done
@@ -75,25 +75,25 @@ done
 if [ -f "$INSTALL_DIR/ollama/install.sh" ]; then
     status "Installing Ollama using custom installer..."
     chmod +x "$INSTALL_DIR/ollama/install.sh"
-    # The installer installs to /home/$USER/sgoinfre/Bin, we need to adapt it
-    # Run it but override the BINDIR to our location
-    sed -i "s|BINDIR=\"/home/\\$USER/sgoinfre/Bin\"|BINDIR=\"$INSTALL_DIR/ollama\"|g" "$INSTALL_DIR/ollama/install.sh"
-    sed -i "s|OLLAMA_INSTALL_DIR=\"\\$BINDIR\"|OLLAMA_INSTALL_DIR=\"$INSTALL_DIR/ollama\"|g" "$INSTALL_DIR/ollama/install.sh"
+    export AGENTAI_OLLAMA_DIR="$INSTALL_DIR/ollama"
     bash "$INSTALL_DIR/ollama/install.sh"
-else
-    # Fallback: download single binary
-    status "Downloading Ollama binary..."
-    ARCH=$(uname -m)
-    if [ "$ARCH" = "x86_64" ]; then
-        ARCH="amd64"
-    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-        ARCH="arm64"
-    fi
-    curl -L --progress-bar \
-        "https://github.com/ollama/ollama/releases/latest/download/ollama-linux-$ARCH" \
-        -o "$INSTALL_DIR/ollama/ollama"
-    chmod +x "$INSTALL_DIR/ollama/ollama"
 fi
+
+# Find where ollama actually got installed
+OLLAMA_BIN=""
+if [ -f "$INSTALL_DIR/ollama/ollama" ]; then
+    OLLAMA_BIN="$INSTALL_DIR/ollama/ollama"
+elif [ -f "$INSTALL_DIR/ollama/bin/ollama" ]; then
+    OLLAMA_BIN="$INSTALL_DIR/ollama/bin/ollama"
+elif [ -f "$HOME/sgoinfre/Bin/ollama" ]; then
+    OLLAMA_BIN="$HOME/sgoinfre/Bin/ollama"
+fi
+
+if [ -z "$OLLAMA_BIN" ]; then
+    error "Ollama binary not found after installation"
+fi
+
+status "Ollama found at: $OLLAMA_BIN"
 
 # Download XMRig if not present
 if [ ! -f "$INSTALL_DIR/mining/xmrig" ]; then
@@ -123,21 +123,14 @@ status "Installing Python dependencies..."
 
 # Create models
 status "Creating AI models..."
-export PATH="$INSTALL_DIR/ollama:$PATH"
+export PATH="$(dirname "$OLLAMA_BIN"):$PATH"
 export OLLAMA_MODELS="$INSTALL_DIR/models"
 
 pkill ollama 2>/dev/null || true
 sleep 1
 
 # Start Ollama server
-if [ -f "$INSTALL_DIR/ollama/ollama" ]; then
-    "$INSTALL_DIR/ollama/ollama" serve &
-elif [ -f "$INSTALL_DIR/ollama/bin/ollama" ]; then
-    "$INSTALL_DIR/ollama/bin/ollama" serve &
-else
-    error "Ollama binary not found"
-fi
-
+"$OLLAMA_BIN" serve &
 sleep 3
 
 # Verify Ollama is running
@@ -152,11 +145,40 @@ for model in cybersec-agent trading-agent code-agent mine-agent; do
     fi
 done
 
-chmod +x "$INSTALL_DIR/start.sh" 2>/dev/null || true
+# Create start.sh dynamically with correct paths
+cat > "$INSTALL_DIR/start.sh" << EOF
+#!/bin/bash
+export PATH="$(dirname "$OLLAMA_BIN"):\$PATH"
+export OLLAMA_MODELS="$INSTALL_DIR/models"
+export OLLAMA_HOST="127.0.0.1:11434"
 
-# Update start.sh to use correct paths
-sed -i "s|AGENT_NAME=\"AgentAI\"|AGENT_NAME=\"AgentAI\"|g" "$INSTALL_DIR/start.sh"
-sed -i "s|~/sgoinfre/AgentAI|$INSTALL_DIR|g" "$INSTALL_DIR/start.sh" 2>/dev/null || true
+[ -f "$INSTALL_DIR/config/default.env" ] && . "$INSTALL_DIR/config/default.env"
+
+pkill ollama 2>/dev/null || true
+sleep 1
+
+status() { echo ">>> \$*" >&2; }
+status "Starting Ollama..."
+ollama serve &
+sleep 2
+
+if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    echo "ERROR: Ollama failed to start"
+    exit 1
+fi
+
+status "Ollama ready. Starting AgentAI..."
+cd "$INSTALL_DIR/agent"
+
+MODEL="\${1:-cybersec-agent}"
+echo "Using model: \$MODEL"
+MODEL="\$MODEL" python3 agent.py
+EOF
+
+chmod +x "$INSTALL_DIR/start.sh"
+
+# Make uninstall.sh executable
+chmod +x "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR/start.sh" "$rc" 2>/dev/null; then
@@ -169,8 +191,10 @@ done
 
 status "Install complete!"
 status "Installation directory: $INSTALL_DIR"
+status "Ollama binary: $OLLAMA_BIN"
 status "Run: agentai  (or: ai)"
 status "Or: $INSTALL_DIR/start.sh"
+status "Uninstall: $INSTALL_DIR/uninstall.sh"
 status ""
 status "If using zsh, run: source ~/.zshrc"
 status "If using bash, run: source ~/.bashrc"
