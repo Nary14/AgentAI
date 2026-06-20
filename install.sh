@@ -2,13 +2,62 @@
 set -e
 
 AGENT_NAME="AgentAI"
-INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
 REPO_URL="https://raw.githubusercontent.com/Nary14/AgentAI/main"
 
 status() { echo ">>> $*" >&2; }
 error() { echo "ERROR: $*" >&2; exit 1; }
 
+# Directory selection
+echo "=========================================="
+echo "  AgentAI Installer"
+echo "=========================================="
+echo ""
+echo "Choose installation directory:"
+echo "  1) ~/sgoinfre/AgentAI  (default, recommended for 42 students)"
+echo "  2) ~/AgentAI             (home directory)"
+echo "  3) Custom path"
+echo ""
+
+printf "Enter choice [1-3] (default: 1): "
+read -r choice
+
+case "$choice" in
+    2|2))
+        INSTALL_DIR="$HOME/AgentAI"
+        ;;
+    3|3))
+        printf "Enter custom path: "
+        read -r custom_path
+        if [ -z "$custom_path" ]; then
+            error "Custom path cannot be empty"
+        fi
+        # Expand ~ if used
+        INSTALL_DIR="${custom_path/#\~/$HOME}"
+        ;;
+    *)
+        # Default: sgoinfre, fallback to home if doesn't exist
+        if [ -d "$HOME/sgoinfre" ]; then
+            INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
+            status "Using sgoinfre (detected)"
+        else
+            INSTALL_DIR="$HOME/$AGENT_NAME"
+            status "sgoinfre not found, using home directory"
+        fi
+        ;;
+esac
+
+# Validate directory
+if [ -d "$INSTALL_DIR" ]; then
+    printf "Directory $INSTALL_DIR already exists. Overwrite? [y/N]: "
+    read -r overwrite
+    if [ "$overwrite" != "y" ] && [ "$overwrite" != "Y" ]; then
+        error "Installation cancelled"
+    fi
+    rm -rf "$INSTALL_DIR"
+fi
+
 mkdir -p "$INSTALL_DIR"
+status "Installing to: $INSTALL_DIR"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -53,11 +102,18 @@ for file in agent/agent.py agent/browser.py agent/tools.py agent/requirements.tx
     curl -fsSL "$REPO_URL/$file" -o "$INSTALL_DIR/$file" 2>/dev/null || true
 done
 
+# Update paths in start.sh to use selected directory
+sed -i "s|AGENT_NAME=\"AgentAI\"|AGENT_NAME=\"AgentAI\"|g" "$INSTALL_DIR/start.sh" 2>/dev/null || true
+
 # Install Python dependencies
 status "Installing Python dependencies..."
-pip3 install --user -r "$INSTALL_DIR/agent/requirements.txt" 2>/dev/null || \
-    pip install --user -r "$INSTALL_DIR/agent/requirements.txt" 2>/dev/null || \
-    error "Failed to install Python packages. Install pip first."
+if command -v pip3 >/dev/null 2>&1; then
+    pip3 install --user -r "$INSTALL_DIR/agent/requirements.txt"
+elif command -v pip >/dev/null 2>&1; then
+    pip install --user -r "$INSTALL_DIR/agent/requirements.txt"
+else
+    error "pip/pip3 not found. Install Python pip first."
+fi
 
 # Create models
 status "Creating AI models..."
@@ -79,12 +135,20 @@ done
 # Make start.sh executable
 chmod +x "$INSTALL_DIR/start.sh" 2>/dev/null || true
 
-# Add alias to shell
-if ! grep -q "AgentAI/start.sh" "$HOME/.bashrc" 2>/dev/null; then
-    echo "alias agentai='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
-    echo "alias ai='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
-fi
+# Add aliases to all shells (bash + zsh)
+for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR/start.sh" "$rc" 2>/dev/null; then
+        echo "" >> "$rc"
+        echo "# AgentAI aliases" >> "$rc"
+        echo "alias agentai='$INSTALL_DIR/start.sh'" >> "$rc"
+        echo "alias ai='$INSTALL_DIR/start.sh'" >> "$rc"
+    fi
+done
 
 status "Install complete!"
+status "Installation directory: $INSTALL_DIR"
 status "Run: agentai  (or: ai)"
 status "Or: $INSTALL_DIR/start.sh"
+status ""
+status "If using zsh, run: source ~/.zshrc"
+status "If using bash, run: source ~/.bashrc"
