@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Allow overriding install dir via environment variable
+INSTALL_DIR="${AGENTAI_OLLAMA_DIR:-/home/$USER/sgoinfre/Bin}"
+
 red="$( (/usr/bin/tput bold || :; /usr/bin/tput setaf 1 || :) 2>&-)"
 plain="$( (/usr/bin/tput sgr0 || :) 2>&-)"
 
@@ -47,7 +50,7 @@ if [ -n "$NEEDS" ]; then
 fi
 
 # User install directory
-BINDIR="/home/$USER/sgoinfre/Bin"
+BINDIR="$INSTALL_DIR"
 OLLAMA_INSTALL_DIR="$BINDIR"
 mkdir -p "$BINDIR" || error "Cannot create $BINDIR"
 
@@ -99,6 +102,6 @@ fi
 status 'The Ollama API is now available at 127.0.0.1:11434.'
 status 'Install complete. Run "ollama" from the command line.'
 status "Make sure $BINDIR is in your PATH:"
-status "  export PATH=\"/home/$USER/sgoinfre/Bin:\$PATH\""
+status "  export PATH=\"$BINDIR:\$PATH\""
 
 exit 0
