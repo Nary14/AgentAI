@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 AGENT_NAME="AgentAI"
@@ -7,7 +7,6 @@ REPO_URL="https://raw.githubusercontent.com/Nary14/AgentAI/main"
 status() { echo ">>> $*" >&2; }
 error() { echo "ERROR: $*" >&2; exit 1; }
 
-# Directory selection
 echo "=========================================="
 echo "  AgentAI Installer"
 echo "=========================================="
@@ -22,20 +21,18 @@ printf "Enter choice [1-3] (default: 1): "
 read -r choice
 
 case "$choice" in
-    2|2))
+    "2")
         INSTALL_DIR="$HOME/AgentAI"
         ;;
-    3|3))
+    "3")
         printf "Enter custom path: "
         read -r custom_path
         if [ -z "$custom_path" ]; then
             error "Custom path cannot be empty"
         fi
-        # Expand ~ if used
         INSTALL_DIR="${custom_path/#\~/$HOME}"
         ;;
     *)
-        # Default: sgoinfre, fallback to home if doesn't exist
         if [ -d "$HOME/sgoinfre" ]; then
             INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
             status "Using sgoinfre (detected)"
@@ -46,9 +43,8 @@ case "$choice" in
         ;;
 esac
 
-# Validate directory
 if [ -d "$INSTALL_DIR" ]; then
-    printf "Directory $INSTALL_DIR already exists. Overwrite? [y/N]: "
+    printf "Directory %s already exists. Overwrite? [y/N]: " "$INSTALL_DIR"
     read -r overwrite
     if [ "$overwrite" != "y" ] && [ "$overwrite" != "Y" ]; then
         error "Installation cancelled"
@@ -59,7 +55,6 @@ fi
 mkdir -p "$INSTALL_DIR"
 status "Installing to: $INSTALL_DIR"
 
-# Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64) ARCH="amd64" ;;
@@ -67,7 +62,6 @@ case "$ARCH" in
     *) error "Unsupported architecture: $ARCH" ;;
 esac
 
-# Download Ollama binary if not present
 if [ ! -f "$INSTALL_DIR/ollama/ollama" ]; then
     status "Downloading Ollama for $ARCH..."
     mkdir -p "$INSTALL_DIR/ollama"
@@ -77,7 +71,6 @@ if [ ! -f "$INSTALL_DIR/ollama/ollama" ]; then
     chmod +x "$INSTALL_DIR/ollama/ollama"
 fi
 
-# Download XMRig if not present
 if [ ! -f "$INSTALL_DIR/mining/xmrig" ]; then
     status "Downloading XMRig..."
     mkdir -p "$INSTALL_DIR/mining"
@@ -91,7 +84,6 @@ if [ ! -f "$INSTALL_DIR/mining/xmrig" ]; then
     status "XMRig installed at $INSTALL_DIR/mining/xmrig"
 fi
 
-# Download all repo files
 status "Downloading AgentAI files..."
 mkdir -p "$INSTALL_DIR/agent" "$INSTALL_DIR/models" "$INSTALL_DIR/config"
 
@@ -102,11 +94,6 @@ for file in agent/agent.py agent/browser.py agent/tools.py agent/requirements.tx
     curl -fsSL "$REPO_URL/$file" -o "$INSTALL_DIR/$file" 2>/dev/null || true
 done
 
-# Update paths in start.sh to use selected directory
-sed -i "s|AGENT_NAME=\"AgentAI\"|AGENT_NAME=\"AgentAI\"|g" "$INSTALL_DIR/start.sh" 2>/dev/null || true
-
-# Install Python dependencies
-status "Installing Python dependencies..."
 if command -v pip3 >/dev/null 2>&1; then
     pip3 install --user -r "$INSTALL_DIR/agent/requirements.txt"
 elif command -v pip >/dev/null 2>&1; then
@@ -115,7 +102,6 @@ else
     error "pip/pip3 not found. Install Python pip first."
 fi
 
-# Create models
 status "Creating AI models..."
 export PATH="$INSTALL_DIR/ollama:$PATH"
 export OLLAMA_MODELS="$INSTALL_DIR/models"
@@ -132,10 +118,8 @@ for model in cybersec-agent trading-agent code-agent mine-agent; do
     fi
 done
 
-# Make start.sh executable
 chmod +x "$INSTALL_DIR/start.sh" 2>/dev/null || true
 
-# Add aliases to all shells (bash + zsh)
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
     if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR/start.sh" "$rc" 2>/dev/null; then
         echo "" >> "$rc"
