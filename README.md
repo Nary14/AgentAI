@@ -7,15 +7,15 @@ Autonomous AI agent with system access, browser automation, and offline Ollama.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/AgentNary/main/install.sh | sh
 ```
-##Run
+## Run
 ```bash
 agentnary        # or: an
 ```
-##Or with specific model:
+## Or with specific model:
 ```bash
 ~/sgoinfre/AgentNary/start.sh trading-agent
 ```
-##Available Models
+## Available Models
 
 |Model	|Purpose|
 |:------|------:|
@@ -23,7 +23,7 @@ agentnary        # or: an
 |trading-agent	|Finance, stocks, data analysis|
 |code-agent	|Coding, development, debugging|
 
-##Examples
+## Examples
 ```plain
 Create Excel from photos in ~/Pictures/Class
 Go to Google and search for "python tutorial"
@@ -31,7 +31,7 @@ Start HTB and open the machines page
 Write a port scanner in Python
 ```
 
-##Structure
+## Structure
 ```plain
 ~/sgoinfre/AgentNary/
 ├── ollama/          # Ollama binary
@@ -41,7 +41,7 @@ Write a port scanner in Python
 └── start.sh         # Launcher
 ```
 
-##Requirements
+## Requirements
 
 and hoe to make dot
 like this but with dot
