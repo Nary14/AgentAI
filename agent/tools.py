@@ -132,3 +132,229 @@ def web_scrape(url, action="get_text"):
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=30) as response:
             html = response.read().decode('utf-8', errors='ignore')
+        
+        if action == "get_text":
+            class TextExtractor(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.text = []
+                    self.skip = False
+                def handle_starttag(self, tag, attrs):
+                    if tag in ['script', 'style', 'nav', 'footer']:
+                        self.skip = True
+                def handle_endtag(self, tag):
+                    if tag in ['script', 'style', 'nav', 'footer']:
+                        self.skip = False
+                def handle_data(self, data):
+                    if not self.skip:
+                        self.text.append(data.strip())
+            
+            extractor = TextExtractor()
+            extractor.feed(html)
+            return ' '.join(extractor.text)[:5000]
+        return html[:3000]
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+# ============== MINING TOOLS ==============
+
+MINING_DIR = os.path.expanduser("~/sgoinfre/AgentAI/mining")
+os.makedirs(MINING_DIR, exist_ok=True)
+os.makedirs(f"{MINING_DIR}/logs", exist_ok=True)
+
+MINING_PROCESSES = {}
+
+def mine_config(path, content):
+    full = os.path.expanduser(path)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    with open(full, 'w') as f:
+        f.write(content)
+    return f"Config written: {full}"
+
+def mine_start(pool, wallet, algorithm="rx/0", threads=None):
+    if "xmrig" in MINING_PROCESSES and MINING_PROCESSES["xmrig"].poll() is None:
+        return "ERROR: Mining already running. Stop it first with mine_stop"
+    
+    temp = sys_cpu_temp()
+    if isinstance(temp, (int, float)) and temp > 80:
+        return f"ERROR: CPU too hot ({temp}C). Mining blocked."
+    
+    battery = sys_battery()
+    if battery and battery.get("on_battery", False):
+        return "ERROR: On battery power. Mining blocked for laptop safety."
+    
+    if threads is None:
+        cpu_count = os.cpu_count() or 4
+        threads = max(1, cpu_count // 2)
+    
+    xmrig_path = os.path.expanduser("~/sgoinfre/AgentAI/mining/xmrig")
+    if not os.path.exists(xmrig_path):
+        return f"ERROR: XMRig not found at {xmrig_path}. Run install.sh to download it."
+    
+    config = {
+        "autosave": True,
+        "cpu": {
+            "enabled": True,
+            "huge-pages": True,
+            "hw-aes": None,
+            "priority": 1,
+            "memory-pool": False,
+            "yield": True,
+            "max-threads-hint": threads,
+            "asm": True,
+            "argon2-impl": None,
+            "astrobwt-max-size": 550,
+            "astrobwt-avx2": False,
+            "cn/0": False,
+            "cn-lite/0": False
+        },
+        "opencl": False,
+        "cuda": False,
+        "pools": [
+            {
+                "algo": algorithm,
+                "coin": None,
+                "url": pool,
+                "user": wallet,
+                "pass": "x",
+                "rig-id": f"AgentAI-{os.getenv('USER')}",
+                "nicehash": False,
+                "keepalive": True,
+                "enabled": True,
+                "tls": False,
+                "tls-fingerprint": None,
+                "daemon": False,
+                "socks5": None,
+                "self-select": None,
+                "submit-to-origin": False
+            }
+        ],
+        "api": {
+            "id": None,
+            "worker-id": None,
+            "http": {
+                "enabled": True,
+                "host": "127.0.0.1",
+                "port": 8080,
+                "access-token": None,
+                "restricted": True
+            }
+        }
+    }
+    
+    config_path = f"{MINING_DIR}/xmrig_active.json"
+    with open(config_path, 'w') as f:
+        json.dump(config, f, indent=2)
+    
+    log_file = open(f"{MINING_DIR}/logs/mining_{int(time.time())}.log", 'w')
+    proc = subprocess.Popen(
+        [xmrig_path, "-c", config_path],
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        cwd=MINING_DIR
+    )
+    
+    MINING_PROCESSES["xmrig"] = proc
+    return f"Mining started: {algorithm} on {pool} with {threads} threads. PID: {proc.pid}"
+
+def mine_stop():
+    stopped = []
+    for name, proc in list(MINING_PROCESSES.items()):
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except:
+                proc.kill()
+            stopped.append(name)
+    
+    MINING_PROCESSES.clear()
+    return f"Stopped mining: {', '.join(stopped) if stopped else 'Nothing was running'}"
+
+def mine_status():
+    try:
+        import requests as req
+        r = req.get("http://127.0.0.1:8080/2/summary", timeout=2)
+        data = r.json()
+        hashrate = data.get("hashrate", {}).get("total", [0])[0]
+        uptime = data.get("uptime", 0)
+        threads = data.get("cpu", {}).get("threads", 0)
+        return f"Hashrate: {hashrate:.2f} H/s | Threads: {threads} | Uptime: {uptime}s"
+    except:
+        return "Mining API not responding. Check if XMRig is running."
+
+def mine_switch(pool, algorithm, wallet=None):
+    mine_stop()
+    time.sleep(1)
+    wallet = wallet or "WALLET_PLACEHOLDER"
+    return mine_start(pool, wallet, algorithm)
+
+def mine_benchmark():
+    xmrig_path = os.path.expanduser("~/sgoinfre/AgentAI/mining/xmrig")
+    if not os.path.exists(xmrig_path):
+        return "ERROR: XMRig not found"
+    
+    result = subprocess.run([xmrig_path, "--bench=1M"], capture_output=True, text=True, timeout=300)
+    return f"Benchmark complete:\n{result.stdout[-2000:]}"
+
+def mine_earnings(pool_api_url):
+    try:
+        import requests as req
+        r = req.get(pool_api_url, timeout=10)
+        data = r.json()
+        return json.dumps(data, indent=2)[:2000]
+    except Exception as e:
+        return f"ERROR fetching earnings: {e}"
+
+# ============== SYSTEM MONITORING ==============
+
+def sys_cpu_temp():
+    try:
+        for path in [
+            "/sys/class/thermal/thermal_zone0/temp",
+            "/sys/class/hwmon/hwmon0/temp1_input",
+            "/sys/class/hwmon/hwmon1/temp1_input"
+        ]:
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    temp = int(f.read().strip()) / 1000
+                    return round(temp, 1)
+    except:
+        pass
+    return "Unknown"
+
+def sys_load():
+    try:
+        with open("/proc/loadavg", 'r') as f:
+            return f.read().strip()
+    except:
+        return "Unknown"
+
+def sys_battery():
+    try:
+        for bat in glob.glob("/sys/class/power_supply/BAT*"):
+            with open(f"{bat}/status", 'r') as f:
+                status = f.read().strip()
+            with open(f"{bat}/capacity", 'r') as f:
+                capacity = int(f.read().strip())
+            return {
+                "on_battery": status == "Discharging",
+                "status": status,
+                "capacity": capacity
+            }
+    except:
+        return None
+
+def sys_idle_time():
+    try:
+        result = subprocess.run(["xprintidle"], capture_output=True, text=True, timeout=2)
+        idle_ms = int(result.stdout.strip())
+        return idle_ms / 1000
+    except:
+        return "Unknown (install xprintidle: sudo apt install xprintidle)"
+
+def sys_is_idle(threshold_seconds=300):
+    idle = sys_idle_time()
+    if isinstance(idle, (int, float)):
+        return idle > threshold_seconds
+    return False
