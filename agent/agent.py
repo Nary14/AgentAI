@@ -33,10 +33,24 @@ TOOLS = {
     "browser_screenshot": lambda p: browser.screenshot(p),
     "browser_wait": lambda p: browser.wait(int(p)) if p.isdigit() else browser.wait(),
     "browser_close": lambda _: browser.close(),
+    # Mining
+    "mine_config": lambda p: mine_config(*p.split("|", 1)) if "|" in p else "ERROR: mine_config needs path|content",
+    "mine_start": lambda p: mine_start(*p.split("|", 2)) if p.count("|") >= 2 else "ERROR: mine_start needs pool|wallet|algorithm",
+    "mine_stop": lambda _: mine_stop(),
+    "mine_status": lambda _: mine_status(),
+    "mine_switch": lambda p: mine_switch(*p.split("|", 2)) if p.count("|") >= 2 else "ERROR: mine_switch needs pool|algorithm",
+    "mine_benchmark": lambda _: mine_benchmark(),
+    "mine_earnings": lambda p: mine_earnings(p),
+    # System monitoring
+    "sys_cpu_temp": lambda _: sys_cpu_temp(),
+    "sys_load": lambda _: sys_load(),
+    "sys_battery": lambda _: str(sys_battery()),
+    "sys_idle_time": lambda _: sys_idle_time(),
+    "sys_is_idle": lambda p: sys_is_idle(int(p)) if p.isdigit() else sys_is_idle(),
 }
 
 def ask_model(prompt, context=""):
-    system = f"""You are AgentNary — an autonomous agent with FULL SYSTEM and BROWSER access.
+    system = f"""You are AgentAI — an autonomous agent with FULL SYSTEM and BROWSER access.
 Model: {MODEL}
 
 Available tools:
@@ -59,6 +73,18 @@ Available tools:
 - browser_screenshot|path
 - browser_wait|3
 - browser_close
+- mine_config|path|content
+- mine_start|pool|wallet|algorithm
+- mine_stop
+- mine_status
+- mine_switch|pool|algorithm
+- mine_benchmark
+- mine_earnings|pool_api_url
+- sys_cpu_temp
+- sys_load
+- sys_battery
+- sys_idle_time
+- sys_is_idle|300
 
 ALWAYS format actions as: EXECUTE:tool|params
 
@@ -82,7 +108,7 @@ def parse_actions(text):
 
 def main():
     print("=" * 60)
-    print(f"  AgentNary — Model: {MODEL}")
+    print(f"  AgentAI — Model: {MODEL}")
     print("  Type 'quit' to exit")
     print("=" * 60)
     
@@ -95,6 +121,7 @@ def main():
         
         if user_input.lower() in ('quit', 'exit', 'q'):
             browser.close()
+            mine_stop()
             break
         if not user_input:
             continue
