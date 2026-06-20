@@ -5,7 +5,8 @@ Autonomous AI agent with system access, browser automation, and offline Ollama.
 ## One-Command Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Nary14/AgentAI/main/install.sh)
+curl -fsSL https://raw.githubusercontent.com/Nary14/AgentAI/main/install.sh -o /tmp/install.sh
+bash /tmp/install.sh
 ```
 ## Run
 ```bash
