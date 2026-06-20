@@ -3,8 +3,10 @@ import subprocess
 import tempfile
 import glob
 import re
+import json
+import time
 
-# Safety
+# Safety blocks
 BLOCKED_PATTERNS = [
     r'rm\s+-rf\s+/',
     r'rm\s+-rf\s+/\s*\*',
@@ -29,7 +31,7 @@ def run_bash(cmd, timeout=120):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
 
 def exec_python(code):
-    script_dir = os.path.expanduser("~/sgoinfre/AgentNary/scripts")
+    script_dir = os.path.expanduser("~/sgoinfre/AgentAI/scripts")
     os.makedirs(script_dir, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=script_dir) as f:
         f.write(code)
@@ -130,26 +132,3 @@ def web_scrape(url, action="get_text"):
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=30) as response:
             html = response.read().decode('utf-8', errors='ignore')
-        
-        if action == "get_text":
-            class TextExtractor(HTMLParser):
-                def __init__(self):
-                    super().__init__()
-                    self.text = []
-                    self.skip = False
-                def handle_starttag(self, tag, attrs):
-                    if tag in ['script', 'style', 'nav', 'footer']:
-                        self.skip = True
-                def handle_endtag(self, tag):
-                    if tag in ['script', 'style', 'nav', 'footer']:
-                        self.skip = False
-                def handle_data(self, data):
-                    if not self.skip:
-                        self.text.append(data.strip())
-            
-            extractor = TextExtractor()
-            extractor.feed(html)
-            return ' '.join(extractor.text)[:5000]
-        return html[:3000]
-    except Exception as e:
-        return f"ERROR: {str(e)}"
