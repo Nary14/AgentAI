@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
+INSTALL_DIR="$HOME/sgoinfre/AgentAI"
+OLLAMA_BIN="$INSTALL_DIR/ollama/ollama"
 
-AGENT_NAME="AgentNary"
-INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
-export PATH="$INSTALL_DIR/ollama:$PATH"
+export PATH="$(dirname "$OLLAMA_BIN"):$PATH"
 export OLLAMA_MODELS="$INSTALL_DIR/models"
 export OLLAMA_HOST="127.0.0.1:11434"
 
@@ -13,10 +13,10 @@ export OLLAMA_HOST="127.0.0.1:11434"
 pkill ollama 2>/dev/null || true
 sleep 1
 
-# Start Ollama
+# Start Ollama silently
 status() { echo ">>> $*" >&2; }
 status "Starting Ollama..."
-ollama serve &
+nohup ollama serve >/dev/null 2>&1 &
 sleep 2
 
 # Check if running
@@ -25,11 +25,10 @@ if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     exit 1
 fi
 
-status "Ollama ready. Starting AgentNary..."
+status "Ollama ready. Starting AgentAI..."
 cd "$INSTALL_DIR/agent"
 
 # Default model or choose
 MODEL="${1:-cybersec-agent}"
 echo "Using model: $MODEL"
-
 MODEL="$MODEL" python3 agent.py
