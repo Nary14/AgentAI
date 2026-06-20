@@ -47,6 +47,11 @@ TOOLS = {
     "sys_battery": lambda _: str(sys_battery()),
     "sys_idle_time": lambda _: sys_idle_time(),
     "sys_is_idle": lambda p: sys_is_idle(int(p)) if p.isdigit() else sys_is_idle(),
+    # Faucet
+    "faucet_claim": lambda p: faucet_claim(*p.split("|", 2)) if p.count("|") >= 2 else "ERROR: faucet_claim needs url|selector|cooldown",
+    "auto_faucet": lambda p: auto_faucet_loop(*p.split("|", 3)) if p.count("|") >= 3 else "ERROR: auto_faucet needs url|selector|cooldown|max_claims",
+    "dice_roll": lambda p: dice_roll(*p.split("|", 3)) if p.count("|") >= 3 else "ERROR: dice_roll needs url|bet|roll_under|api_key",
+    "solve_captcha": lambda p: solve_captcha(p),
 }
 
 def ask_model(prompt, context=""):
@@ -85,6 +90,10 @@ Available tools:
 - sys_battery
 - sys_idle_time
 - sys_is_idle|300
+- faucet_claim|url|selector|cooldown
+- auto_faucet|url|selector|cooldown|max_claims
+- dice_roll|url|bet|roll_under|api_key
+- solve_captcha|image_path
 
 ALWAYS format actions as: EXECUTE:tool|params
 
@@ -93,6 +102,8 @@ Context:
 
 User: {prompt}
 Agent:"""
+
+    print("\n[NaryAgent is thinking...]", end="", flush=True)
     
     r = requests.post(OLLAMA_URL, json={
         "model": MODEL,
@@ -100,6 +111,9 @@ Agent:"""
         "stream": False,
         "options": {"temperature": 0.3, "num_ctx": 16384}
     })
+    
+    print("\r" + " " * 30 + "\r", end="")  # Clear line
+    
     return r.json().get("response", "[ERROR: No response]")
 
 def parse_actions(text):
