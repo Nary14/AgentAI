@@ -12,36 +12,43 @@ echo "  AgentAI Installer"
 echo "=========================================="
 echo ""
 echo "Choose installation directory:"
-echo "  1) ~/sgoinfre/AgentAI  (default, recommended for 42 students)"
+echo "  1) ~/sgoinfre/AgentAI  (default)"
 echo "  2) ~/AgentAI             (home directory)"
 echo "  3) Custom path"
 echo ""
 
-printf "Enter choice [1-3] (default: 1): "
-read -r choice
+# Read choice from terminal
+choice=""
+if [ -t 0 ]; then
+    printf "Enter choice [1-3] (default: 1): "
+    read -r choice
+fi
 
-case "$choice" in
-    "2")
-        INSTALL_DIR="$HOME/AgentAI"
-        ;;
-    "3")
+# Determine install directory
+INSTALL_DIR=""
+if [ "$choice" = "2" ]; then
+    INSTALL_DIR="$HOME/AgentAI"
+elif [ "$choice" = "3" ]; then
+    if [ -t 0 ]; then
         printf "Enter custom path: "
         read -r custom_path
-        if [ -z "$custom_path" ]; then
-            error "Custom path cannot be empty"
-        fi
-        INSTALL_DIR="${custom_path/#\~/$HOME}"
-        ;;
-    *)
-        if [ -d "$HOME/sgoinfre" ]; then
-            INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
-            status "Using sgoinfre (detected)"
-        else
-            INSTALL_DIR="$HOME/$AGENT_NAME"
-            status "sgoinfre not found, using home directory"
-        fi
-        ;;
-esac
+    else
+        custom_path=""
+    fi
+    if [ -z "$custom_path" ]; then
+        error "Custom path cannot be empty"
+    fi
+    INSTALL_DIR="${custom_path/#\~/$HOME}"
+else
+    # Default
+    if [ -d "$HOME/sgoinfre" ]; then
+        INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
+        status "Using sgoinfre (detected)"
+    else
+        INSTALL_DIR="$HOME/$AGENT_NAME"
+        status "sgoinfre not found, using home directory"
+    fi
+fi
 
 if [ -d "$INSTALL_DIR" ]; then
     printf "Directory %s already exists. Overwrite? [y/N]: " "$INSTALL_DIR"
@@ -56,11 +63,13 @@ mkdir -p "$INSTALL_DIR"
 status "Installing to: $INSTALL_DIR"
 
 ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64) ARCH="amd64" ;;
-    aarch64|arm64) ARCH="arm64" ;;
-    *) error "Unsupported architecture: $ARCH" ;;
-esac
+if [ "$ARCH" = "x86_64" ]; then
+    ARCH="amd64"
+elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    ARCH="arm64"
+else
+    error "Unsupported architecture: $ARCH"
+fi
 
 if [ ! -f "$INSTALL_DIR/ollama/ollama" ]; then
     status "Downloading Ollama for $ARCH..."
