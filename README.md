@@ -12,13 +12,9 @@ bash /tmp/install.sh
 ```bash
 agentai
 ```
-or
+## Or with specific model:
 ```
 ~/sgoinfre/AgentAI/start.sh <agent name> (ex: mine-agent, code-agent, etc)
-```
-## Or with specific model:
-```bash
-~/sgoinfre/AgentNary/start.sh trading-agent
 ```
 ## Available Models
 
