@@ -10,7 +10,11 @@ bash /tmp/install.sh
 ```
 ## Run
 ```bash
-agentnary        # or: an
+agentnary 
+```
+or
+```
+~/sgoinfre/AgentAI/start.sh <agent name> (ex: mine-agent)
 ```
 ## Or with specific model:
 ```bash
