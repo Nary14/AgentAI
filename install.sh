@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-AGENT_NAME="AgentNary"
+AGENT_NAME="AgentAI"
 INSTALL_DIR="$HOME/sgoinfre/$AGENT_NAME"
-REPO_URL="https://raw.githubusercontent.com/YOUR_USERNAME/AgentNary/main"
+REPO_URL="https://raw.githubusercontent.com/Nary14/AgentAI/main"
 
 status() { echo ">>> $*" >&2; }
 error() { echo "ERROR: $*" >&2; exit 1; }
@@ -29,7 +29,7 @@ if [ ! -f "$INSTALL_DIR/ollama/ollama" ]; then
 fi
 
 # Download all repo files
-status "Downloading AgentNary files..."
+status "Downloading AgentAI files..."
 mkdir -p "$INSTALL_DIR/agent" "$INSTALL_DIR/models" "$INSTALL_DIR/config"
 
 for file in agent/agent.py agent/browser.py agent/tools.py agent/requirements.txt \
@@ -64,12 +64,12 @@ done
 # Make start.sh executable
 chmod +x "$INSTALL_DIR/start.sh" 2>/dev/null || true
 
-# Add to PATH
-if ! grep -q "AgentNary/start.sh" "$HOME/.bashrc" 2>/dev/null; then
-    echo "alias agentnary='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
-    echo "alias an='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
+# Add alias to shell
+if ! grep -q "AgentAI/start.sh" "$HOME/.bashrc" 2>/dev/null; then
+    echo "alias agentai='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
+    echo "alias ai='$INSTALL_DIR/start.sh'" >> "$HOME/.bashrc"
 fi
 
 status "Install complete!"
-status "Run: agentnary  (or: an)"
+status "Run: agentai  (or: ai)"
 status "Or: $INSTALL_DIR/start.sh"
